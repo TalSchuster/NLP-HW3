@@ -1,5 +1,30 @@
 import os
+import re
+
 MIN_FREQ = 3
+
+# Categories for rare words (shouldn't overlap)
+REGS = {
+    'oneDigitPosNum' : '^[+]?[0-9]$',
+    'oneDigitNegNum' : '^-[0-9]$',
+    'twoDigitPosNum' : '^[+]?[0-9]{2}$',
+    'twoDigitNegNum' : '^-[0-9]{2}$',
+    'threeDigitPosNum' : '^[+]?[0-9]{3}$',
+    'threeDigitNegNum' : '^-[0-9]{3}$',
+    'fourDigitPosNum': '^[+]?[0-9]{4}$',
+    'fourDigitNegNum': '^-[0-9]{4}$',
+    'containsDigitAndDash': '^[0-9]+\-[0-9]+(\-[0-9]+)?$',
+    'containsDigitAndSlash': '^[0-9]+\/[0-9]+(\/[0-9]+)?$',
+    'containsDigitAndComma': '^[0-9]+\,[0-9]+$',
+    'containsDigitAndPeriod': '^[0-9]+\.[0-9]+$',
+    'allCaps': '^[A-Z]+$',
+    'capPeriod': '^[A-Z]\.$',
+    'initCap': '^[A-Z][a-z]+$',
+    'lowerCase': '^[a-z]+$',
+}
+
+NUM_REG = '^[-+]?[0-9]+$'
+
 def invert_dict(d):
     res = {}
     for k, v in d.iteritems():
@@ -49,9 +74,15 @@ def replace_word(word):
     """
         Replaces rare words with ctegories (numbers, dates, etc...)
     """
-    ### YOUR CODE HERE
-    raise NotImplementedError
-    ### END YOUR CODE
+    for category in REGS.keys():
+        p = re.compile(REGS[category])
+        if p.match(word):
+            return category
+
+    p = re.compile(NUM_REG)
+    if p.match(word):
+        return "otherNum"
+
     return "UNK"
 
 def preprocess_sent(vocab, sents):
@@ -74,6 +105,30 @@ def preprocess_sent(vocab, sents):
     return res
 
 
+def test_replace_word():
+    assert (replace_word('2') == 'oneDigitPosNum')
+    assert (replace_word('-2') == 'oneDigitNegNum')
+    assert (replace_word('23') == 'twoDigitPosNum')
+    assert (replace_word('-23') == 'twoDigitNegNum')
+    assert (replace_word('165') == 'threeDigitPosNum')
+    assert (replace_word('-895') == 'threeDigitNegNum')
+    assert (replace_word('7098') == 'fourDigitPosNum')
+    assert (replace_word('-1897') == 'fourDigitNegNum')
+    assert (replace_word('22-11') == 'containsDigitAndDash')
+    assert (replace_word('22-11-') == 'UNK')
+    assert (replace_word('22-11-897') == 'containsDigitAndDash')
+    assert (replace_word('22/11/1897') == 'containsDigitAndSlash')
+    assert (replace_word('1922/11/8') == 'containsDigitAndSlash')
+    assert (replace_word('11/8') == 'containsDigitAndSlash')
+    assert (replace_word('/11/8') == 'UNK')
+    assert (replace_word('ABDFSADA') == 'allCaps')
+    assert (replace_word('T.') == 'capPeriod')
+    assert (replace_word('Mandatory') == 'initCap')
+    assert (replace_word('mandatory') == 'lowerCase')
+
+
+if __name__ == "__main__":
+    test_replace_word()
 
 
 
