@@ -6,9 +6,6 @@ __pycache__/
 #data
 Penn_Treebank/*
 
-#pychram
-.idea/*
-
 # C extensions
 *.so
 
