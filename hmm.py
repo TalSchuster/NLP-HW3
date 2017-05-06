@@ -50,7 +50,7 @@ def hmm_train(sents):
     return total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts, q_uni_counts
 
 
-def get_pruned_emmisions(e_word_tag_counts, e_tag_counts, factor = 0.01):
+def get_pruned_emmisions(e_word_tag_counts, e_tag_counts, factor = 0.1):
     """
         Gets the emission probabilities and returns a pruned e_word_tag_counts the occurrences that have lower 
         probability by a factor from the maximal one.
