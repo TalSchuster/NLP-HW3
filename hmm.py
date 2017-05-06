@@ -1,5 +1,6 @@
 from data import *
 import numpy as np
+import timeit
 
 STOP = ("STOP", "STOP")
 START = ("*", "*")
@@ -10,6 +11,8 @@ def hmm_train(sents):
         sents contain sentences which are arrays of touple 
         Rerutns: the q-counts and e-counts of the sentences' tags
     """
+    print 'collecting counts'
+    start_time = timeit.default_timer()
     total_tokens = 0
     q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts, e_tag_counts = {}, {}, {}, {}, {}
 
@@ -19,21 +22,15 @@ def hmm_train(sents):
         sent.insert(0,START)
         sent.insert(0,START)
         for i in xrange(1,len(sent)):
-            word_tag = sent[i]
-            if word_tag not in e_word_tag_counts:
-                e_word_tag_counts[word_tag] = 0
-            e_word_tag_counts[word_tag] += 1
-
             uni = sent[i][1]
             if uni not in q_uni_counts:
                 q_uni_counts[uni] = 0
             q_uni_counts[uni] += 1
 
-            if i >= 1:
-                bi = (sent[i-1][1], sent[i][1])
-                if bi not in q_bi_counts:
-                    q_bi_counts[bi] = 0
-                q_bi_counts[bi] += 1
+            bi = (sent[i-1][1], sent[i][1])
+            if bi not in q_bi_counts:
+                q_bi_counts[bi] = 0
+            q_bi_counts[bi] += 1
 
             if i >= 2:
                 tri = (sent[i-2][1], sent[i-1][1], sent[i])
@@ -41,26 +38,40 @@ def hmm_train(sents):
                     q_tri_counts[tri] = 0
                 q_tri_counts[tri] += 1
 
-    # q_uni_counts, e_tag_counts is the same
+                word_tag = sent[i]
+                if word_tag not in e_word_tag_counts:
+                    e_word_tag_counts[word_tag] = 0
+                e_word_tag_counts[word_tag] += 1
+
+    stop_time = timeit.default_timer()
+    print 'Time for computing counts: %.2f seconds' % (stop_time - start_time)
+
+    # q_uni_counts and e_tag_counts are the same (START is not needed for emission but its appearance doesn't interrupt)
     return total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts, q_uni_counts
 
 
-def prunning(e_word_tag_counts, e_tag_counts, factor = 0.01):
+def get_pruned_emmisions(e_word_tag_counts, e_tag_counts, factor = 0.01):
     """
-        Gets the emission probabilities and prunes the occurrences that have lower probability by a factor from the
-         maximal one.
+        Gets the emission probabilities and returns a pruned e_word_tag_counts the occurrences that have lower 
+        probability by a factor from the maximal one.
     """
-    # TODO
-    raise NotImplementedError
-
     words = {}
     for word, tag in e_word_tag_counts.keys():
         if word not in words:
-            words[word] = numpy.array()
+            words[word] = []
 
+        words[word].append(e_prob(word, tag, e_word_tag_counts, e_tag_counts))
 
+    max_prob_word = {}
+    for word in words:
+        max_prob_word[word] = max(words[word])
 
-    return True
+    e_word_tag_counts_pruned = {}
+    for word, tag in e_word_tag_counts.keys():
+        if e_prob(word, tag, e_word_tag_counts, e_tag_counts) >= factor * max_prob_word[word]:
+            e_word_tag_counts_pruned[(word,tag)] = e_word_tag_counts[(word,tag)]
+
+    return e_word_tag_counts_pruned
 
 
 def q_prob(prev_prev_tag, prev_tag, curr_tag, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts):
@@ -83,7 +94,7 @@ def e_prob(word, pos, e_word_tag_counts, e_tag_counts):
     word_pos = (word, pos)
     if word_pos not in e_word_tag_counts:
         return 0.0
-    return float(e_word_tag_counts[word_pos]) / e_tag_counts(pos)
+    return float(e_word_tag_counts[word_pos]) / e_tag_counts[pos]
 
 
 def hmm_viterbi(sent, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts, e_tag_counts):
@@ -95,6 +106,8 @@ def hmm_viterbi(sent, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_w
     possible_tags = e_tag_counts.keys()
     n = len(sent)
 
+    e_word_tag_counts_pruned = get_pruned_emmisions(e_word_tag_counts, e_tag_counts)
+
     # Preparing the table, it starts with zeros for pi(0,*,*) and for entries not filled because of prunning policy
     table = np.zeros((n + 1, total_tokens, total_tokens), np.float32)
     bp = np.zeros((n + 1, total_tokens, total_tokens), np.int8)
@@ -103,20 +116,19 @@ def hmm_viterbi(sent, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_w
     for index, (word, _) in enumerate(sent):
         k = index + 1
         for v_index, v in enumerate(possible_tags):
-            e = e_prob(word, v, e_word_tag_counts, e_tag_counts)
+            e = e_prob(word, v, e_word_tag_counts_pruned, e_tag_counts)
             if e == 0:
                 continue
             for u_index, u in enumerate(possible_tags):
-                if prunning_policy(word, u, v):
-                    max_val, max_bp = 0, 0
-                    for w_index, w in enumerate(possible_tags):
-                        val = table[k-1][w_index][u_index] \
-                              * q_prob(w, u, v, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts) * e
-                        if val > max_val:
-                            max_val = val
-                            max_bp = w_index
-                    table[k][u_index][v_index] = max_val
-                    bp[k][u_index][v_index] = max_bp
+                max_val, max_bp = 0, 0
+                for w_index, w in enumerate(possible_tags):
+                    val = table[k-1][w_index][u_index] \
+                          * q_prob(w, u, v, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts) * e
+                    if val > max_val:
+                        max_val = val
+                        max_bp = w_index
+                table[k][u_index][v_index] = max_val
+                bp[k][u_index][v_index] = max_bp
 
     # Phase 2: Finding maximal assignment for y_(n-1), y_n according to the table
     max_val, max_u, max_v = 0.0, "", ""
@@ -146,6 +158,8 @@ def hmm_eval(test_data, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e
     """
     acc_viterbi = 0.0
     ### YOUR CODE HERE
+    for sent in test_data:
+        hmm_viterbi(sent, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts,e_tag_counts)
     raise NotImplementedError
     ### END YOUR CODE
     return acc_viterbi
