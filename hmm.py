@@ -67,7 +67,7 @@ def e_prob(word, pos, e_word_tag_counts, e_tag_counts):
     word_pos = (word, pos)
     if word_pos not in e_word_tag_counts:
         return 0.0
-    return float(e_word_tag_counts[word_pos]) / e_tag_counts(pos)
+    return float(e_word_tag_counts[word_pos]) / e_tag_counts[pos]
 
 
 def hmm_viterbi(sent, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts, e_tag_counts):
@@ -77,11 +77,12 @@ def hmm_viterbi(sent, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_w
     """
     predicted_tags = [""] * (len(sent))
     possible_tags = e_tag_counts.keys()
+    s = len(possible_tags)
     n = len(sent)
 
     # Preparing the table, it starts with zeros for pi(0,*,*) and for entries not filled because of prunning policy
-    table = np.zeros((n + 1, total_tokens, total_tokens), np.float32)
-    bp = np.zeros((n + 1, total_tokens, total_tokens), np.int8)
+    table = np.zeros((n + 1, s, s), np.float32)
+    bp = np.zeros((n + 1, s, s), np.int8)
 
     # Phase 1: Filling the table
     for index, (word, _) in enumerate(sent):
@@ -103,7 +104,7 @@ def hmm_viterbi(sent, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_w
                     bp[k][u_index][v_index] = max_bp
 
     # Phase 2: Finding maximal assignment for y_(n-1), y_n according to the table
-    max_val, max_u, max_v = 0.0, "", ""
+    max_val, max_u, max_v = 0.0, 0, 0
     for u_index, u in enumerate(possible_tags):
         for v_index, v in enumerate(possible_tags):
             curr_val = table[n][u_index][v_index] \
@@ -111,6 +112,8 @@ def hmm_viterbi(sent, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_w
             if curr_val > max_val:
                 max_val = curr_val
                 max_u, max_v = u_index, v_index
+    if max_val == 0.0:
+        print "problem"
     predicted_tags[n-1], y_k_2 = possible_tags[max_v], max_v
     predicted_tags[n-2], y_k_1 = possible_tags[max_u], max_u
 
@@ -128,10 +131,17 @@ def hmm_eval(test_data, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e
     Receives: test data set and the parameters learned by hmm
     Returns an evaluation of the accuracy of hmm
     """
-    acc_viterbi = 0.0
-    ### YOUR CODE HERE
-    raise NotImplementedError
-    ### END YOUR CODE
+    num_of_words, num_of_correct_tags = 0, 0
+    for sent in test_data:
+        prediction = hmm_viterbi(sent, total_tokens, q_tri_counts, q_bi_counts,
+                                 q_uni_counts, e_word_tag_counts, e_tag_counts)
+        for i, (word, pos) in enumerate(sent):
+            num_of_words += 1
+            if pos == prediction[i]:
+                num_of_correct_tags += 1
+    return str(float(num_of_correct_tags)/num_of_words)
+
+
     return acc_viterbi
 
 if __name__ == "__main__":
