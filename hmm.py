@@ -116,7 +116,8 @@ def hmm_viterbi(sent, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_w
     s = len(possible_tags)
     n = len(sent)
 
-    e_word_tag_counts_pruned = get_pruned_emmisions(e_word_tag_counts, e_tag_counts)
+    # e_word_tag_counts_pruned = get_pruned_emmisions(e_word_tag_counts, e_tag_counts)
+    e_word_tag_counts_pruned = e_word_tag_counts
 
     # Preparing the table, it starts with zeros for pi(0,*,*) and for entries not filled because of prunning policy
     table = np.zeros((n + 1, s + 1, s + 1), np.float64)
@@ -175,7 +176,8 @@ def hmm_eval(test_data, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e
     """
     num_of_words, num_of_correct_tags = 0, 0
     for i, sent in enumerate(test_data):
-        if i % 100 == 0: print i
+        if i % 100 == 0 and i != 0:
+            print i, float(num_of_correct_tags)/num_of_words
         prediction = hmm_viterbi(sent, total_tokens, q_tri_counts, q_bi_counts,
                                  q_uni_counts, e_word_tag_counts, e_tag_counts)
         for i, (word, pos) in enumerate(sent):
@@ -196,7 +198,9 @@ if __name__ == "__main__":
     lambda3 = 1 - lambda1 - lambda2
 
     total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts, e_tag_counts = hmm_train(train_sents)
-    acc_viterbi = hmm_eval(dev_sents, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts,e_tag_counts)
+    e_word_tag_counts_prunned = get_pruned_emmisions(e_word_tag_counts, e_tag_counts, 0.01)
+    acc_viterbi = hmm_eval(dev_sents, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts,
+                           e_word_tag_counts_prunned ,e_tag_counts)
     print "dev: acc hmm viterbi: " + acc_viterbi
 
     if os.path.exists("Penn_Treebank/test.gold.conll"):
