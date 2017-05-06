@@ -175,9 +175,10 @@ def hmm_eval(test_data, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e
     e_word_tag_counts_pruned = get_pruned_emmisions(e_word_tag_counts, e_tag_counts)
     start_time = timeit.default_timer()
     for i, sent in enumerate(test_data):
-        if i % 100 == 0:
+        if i % 100 == 0 and i != 0:
             stop_time = timeit.default_timer()
-            print "Evaluated %i sentences. Time: %.1f seconds" % (i, stop_time - start_time)
+            print "Evaluated %i sentences. Time: %.1f seconds. Accuracy: %.2f" \
+                  % (i, stop_time - start_time, float(num_of_correct_tags)/num_of_words*100)
         prediction = hmm_viterbi(sent, total_tokens, q_tri_counts, q_bi_counts,
                                  q_uni_counts, e_word_tag_counts_pruned, e_tag_counts)
         for i, (word, pos) in enumerate(sent):
