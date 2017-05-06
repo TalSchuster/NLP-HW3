@@ -53,7 +53,7 @@ def hmm_train(sents):
     # q_uni_counts, e_tag_counts is the same
     return total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts, e_tag_counts
 
-def get_pruned_emmisions(e_word_tag_counts, e_tag_counts, factor = 0.1):
+def get_pruned_emmisions(e_word_tag_counts, e_tag_counts, factor = 0.01):
     """
         Gets the emission probabilities and returns a pruned e_word_tag_counts the occurrences that have lower 
         probability by a factor from the maximal one.
@@ -116,8 +116,6 @@ def hmm_viterbi(sent, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_w
     s = len(possible_tags)
     n = len(sent)
 
-    e_word_tag_counts_pruned = get_pruned_emmisions(e_word_tag_counts, e_tag_counts)
-
     # Preparing the table, it starts with zeros for pi(0,*,*) and for entries not filled because of prunning policy
     table = np.zeros((n + 1, s + 1, s + 1), np.float64)
     table[0][s][s] = 1.0
@@ -127,7 +125,7 @@ def hmm_viterbi(sent, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_w
     for index, (word, _) in enumerate(sent):
         k = index + 1
         for v_index, v in enumerate(possible_tags):
-            e = e_prob(word, v, e_word_tag_counts_pruned, e_tag_counts)
+            e = e_prob(word, v, e_word_tag_counts, e_tag_counts)
             if e == 0:
                 continue
             for u_index, u in enumerate(possible_tag_set(possible_tags, k, False)):
@@ -168,16 +166,20 @@ def hmm_viterbi(sent, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_w
     return predicted_tags
 
 
-def hmm_eval(test_data, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts,e_tag_counts):
+def hmm_eval(test_data, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts, e_tag_counts):
     """
     Receives: test data set and the parameters learned by hmm
     Returns an evaluation of the accuracy of hmm
     """
     num_of_words, num_of_correct_tags = 0, 0
+    e_word_tag_counts_pruned = get_pruned_emmisions(e_word_tag_counts, e_tag_counts)
+    start_time = timeit.default_timer()
     for i, sent in enumerate(test_data):
-        if i % 100 == 0: print i
+        if i % 100 == 0:
+            stop_time = timeit.default_timer()
+            print "Evaluated %i sentences. Time: %.1f seconds" % (i, stop_time - start_time)
         prediction = hmm_viterbi(sent, total_tokens, q_tri_counts, q_bi_counts,
-                                 q_uni_counts, e_word_tag_counts, e_tag_counts)
+                                 q_uni_counts, e_word_tag_counts_pruned, e_tag_counts)
         for i, (word, pos) in enumerate(sent):
             num_of_words += 1
             if pos == prediction[i]:
