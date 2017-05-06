@@ -3,14 +3,39 @@ from data import *
 def hmm_train(sents):
     """
         sents: list of tagged sentences
+        sents contain sentences which are arrays of touple 
         Rerutns: the q-counts and e-counts of the sentences' tags
     """
     total_tokens = 0
-    q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts,e_tag_counts = {}, {}, {}, {}, {}
-    ### YOUR CODE HERE
-    raise NotImplementedError
-    ### END YOUR CODE
-    return total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts,e_tag_counts
+    q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts, e_tag_counts = {}, {}, {}, {}, {}
+
+    for sent in sents:
+        total_tokens += len(sent)
+        for i in xrange(len(sent)):
+            word_tag = sent[i]
+            if word_tag not in e_word_tag_counts:
+                e_word_tag_counts[word_tag] = 0
+            e_word_tag_counts[word_tag] += 1
+
+            uni = sent[i][1]
+            if uni not in q_uni_counts:
+                q_uni_counts[uni] = 0
+            q_uni_counts[uni] += 1
+
+            if i >= 1:
+                bi = (sent[i-1][1], sent[i][1])
+                if bi not in q_bi_counts:
+                    q_bi_counts[bi] = 0
+                q_bi_counts[bi] += 1
+
+            if i >= 2:
+                tri = (sent[i-2], sent[i-1], sent[i])
+                if tri not in q_tri_counts:
+                    q_tri_counts[tri] = 0
+                q_tri_counts[tri] += 1
+
+    # q_uni_counts, e_tag_counts is the same
+    return total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts, q_uni_counts
 
 def hmm_viterbi(sent, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts,e_tag_counts):
     """
