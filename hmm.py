@@ -1,4 +1,5 @@
 from data import *
+import numpy as np
 
 def hmm_train(sents):
     """
@@ -37,15 +38,24 @@ def hmm_train(sents):
     # q_uni_counts, e_tag_counts is the same
     return total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts, q_uni_counts
 
+
+def prunning_policy(k, u, v):
+    """
+        Gets a word and candidate POS tags for it and for the precious one.
+        Returns True if tere's need to calculate pi(k,u,v)
+    """
+    return True
+
+
 def hmm_viterbi(sent, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts,e_tag_counts):
     """
         Receives: a sentence to tag and the parameters learned by hmm
         Rerutns: predicted tags for the sentence
     """
     predicted_tags = [""] * (len(sent))
-    ### YOUR CODE HERE
-    raise NotImplementedError
-    ### END YOUR CODE
+
+    table = np.ones((len(sent), total_tokens, total_tokens))
+
     return predicted_tags
 
 def hmm_eval(test_data, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts,e_tag_counts):
