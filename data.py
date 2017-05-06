@@ -5,20 +5,20 @@ MIN_FREQ = 3
 
 # Categories for rare words (shouldn't overlap)
 REGS = {
-    'oneDigitPosNum' : '^[+]?[0-9]$',
-    'oneDigitNegNum' : '^-[0-9]$',
-    'twoDigitPosNum' : '^[+]?[0-9]{2}$',
-    'twoDigitNegNum' : '^-[0-9]{2}$',
+#    'oneDigitPosNum' : '^[+]?[0-9]$',
+#    'oneDigitNegNum' : '^-[0-9]$',
+#    'twoDigitPosNum' : '^[+]?[0-9]{2}$',
+#    'twoDigitNegNum' : '^-[0-9]{2}$',
     'threeDigitPosNum' : '^[+]?[0-9]{3}$',
-    'threeDigitNegNum' : '^-[0-9]{3}$',
+#    'threeDigitNegNum' : '^-[0-9]{3}$',
     'fourDigitPosNum': '^[+]?[0-9]{4}$',
-    'fourDigitNegNum': '^-[0-9]{4}$',
+#    'fourDigitNegNum': '^-[0-9]{4}$',
     'containsDigitAndDash': '^[0-9]+\-[0-9]+(\-[0-9]+)?$',
     'containsDigitAndSlash': '^[0-9]+\/[0-9]+(\/[0-9]+)?$',
     'containsDigitAndComma': '^[0-9]+\,[0-9]+$',
     'containsDigitAndPeriod': '^[0-9]+\.[0-9]+$',
     'allCaps': '^[A-Z]+$',
-    'capPeriod': '^[A-Z]\.$',
+#    'capPeriod': '^[A-Z]\.$',
     'initCap': '^[A-Z][a-z]+$',
     'lowerCase': '^[a-z]+$',
 }
