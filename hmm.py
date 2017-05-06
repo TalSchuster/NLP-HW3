@@ -86,12 +86,12 @@ def hmm_viterbi(sent, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_w
     # Phase 1: Filling the table
     for index, (word, _) in enumerate(sent):
         k = index + 1
-        for u_index, u in enumerate(possible_tags):
-            for v_index, v in enumerate(possible_tags):
+        for v_index, v in enumerate(possible_tags):
+            e = e_prob(word, v, e_word_tag_counts, e_tag_counts)
+            if e == 0:
+                continue
+            for u_index, u in enumerate(possible_tags):
                 if prunning_policy(word, u, v):
-                    e = e_prob(word, v, e_word_tag_counts, e_tag_counts)
-                    if e == 0:
-                        continue
                     max_val, max_bp = 0, 0
                     for w_index, w in enumerate(possible_tags):
                         val = table[k-1][w_index][u_index] \
