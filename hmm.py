@@ -5,6 +5,7 @@ import timeit
 STOP = ("STOP", "STOP")
 START = ("*", "*")
 
+
 def hmm_train(sents):
     """
         sents: list of tagged sentences
@@ -14,13 +15,13 @@ def hmm_train(sents):
     print 'collecting counts'
     start_time = timeit.default_timer()
     total_tokens = 0
-    q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts, e_tag_counts = {}, {}, {}, {}, {}
+    q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts = {}, {}, {}, {}
 
     for sent in sents:
         sent.append(STOP)
         total_tokens += len(sent)
-        sent.insert(0,START)
-        sent.insert(0,START)
+        sent.insert(0, START)
+        sent.insert(0, START)
         for i in xrange(1,len(sent)):
             uni = sent[i][1]
             if uni not in q_uni_counts:
@@ -43,12 +44,14 @@ def hmm_train(sents):
                     e_word_tag_counts[word_tag] = 0
                 e_word_tag_counts[word_tag] += 1
 
+    e_tag_counts = dict(q_uni_counts)
+    del e_tag_counts[START[1]]
+
     stop_time = timeit.default_timer()
     print 'Time for computing counts: %.2f seconds' % (stop_time - start_time)
 
-    # q_uni_counts and e_tag_counts are the same (START is not needed for emission but its appearance doesn't interrupt)
-    return total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts, q_uni_counts
-
+    # q_uni_counts, e_tag_counts is the same
+    return total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts, e_tag_counts
 
 def get_pruned_emmisions(e_word_tag_counts, e_tag_counts, factor = 0.1):
     """
@@ -97,6 +100,12 @@ def e_prob(word, pos, e_word_tag_counts, e_tag_counts):
     return float(e_word_tag_counts[word_pos]) / e_tag_counts[pos]
 
 
+def possible_tag_set(tag_set, curr_index, for_prev_prev=True):
+    if curr_index > 2 or (curr_index == 2 and not for_prev_prev):
+        return tag_set
+    return [START[1]]
+
+
 def hmm_viterbi(sent, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts, e_tag_counts):
     """
         Receives: a sentence to tag and the parameters learned by hmm
@@ -104,13 +113,15 @@ def hmm_viterbi(sent, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_w
     """
     predicted_tags = [""] * (len(sent))
     possible_tags = e_tag_counts.keys()
+    s = len(possible_tags)
     n = len(sent)
 
     e_word_tag_counts_pruned = get_pruned_emmisions(e_word_tag_counts, e_tag_counts)
 
     # Preparing the table, it starts with zeros for pi(0,*,*) and for entries not filled because of prunning policy
-    table = np.zeros((n + 1, total_tokens, total_tokens), np.float32)
-    bp = np.zeros((n + 1, total_tokens, total_tokens), np.int8)
+    table = np.zeros((n + 1, s + 1, s + 1), np.float64)
+    table[0][s][s] = 1.0
+    bp = np.zeros((n + 1, s + 1, s + 1), np.int8)
 
     # Phase 1: Filling the table
     for index, (word, _) in enumerate(sent):
@@ -119,19 +130,24 @@ def hmm_viterbi(sent, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_w
             e = e_prob(word, v, e_word_tag_counts_pruned, e_tag_counts)
             if e == 0:
                 continue
-            for u_index, u in enumerate(possible_tags):
+            for u_index, u in enumerate(possible_tag_set(possible_tags, k, False)):
+                if u == "*":
+                    u_index = s
                 max_val, max_bp = 0, 0
-                for w_index, w in enumerate(possible_tags):
-                    val = table[k-1][w_index][u_index] \
-                          * q_prob(w, u, v, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts) * e
+                for w_index, w in enumerate(possible_tag_set(possible_tags, k, True)):
+                    if w == "*":
+                        w_index = s
+                    q = q_prob(w, u, v, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts)
+                    val = table[k-1][w_index][u_index] * q * e
                     if val > max_val:
                         max_val = val
                         max_bp = w_index
+                # if max_val == 0: print "prob val"
                 table[k][u_index][v_index] = max_val
                 bp[k][u_index][v_index] = max_bp
 
     # Phase 2: Finding maximal assignment for y_(n-1), y_n according to the table
-    max_val, max_u, max_v = 0.0, "", ""
+    max_val, max_u, max_v = 0.0, 0, 0
     for u_index, u in enumerate(possible_tags):
         for v_index, v in enumerate(possible_tags):
             curr_val = table[n][u_index][v_index] \
@@ -151,18 +167,22 @@ def hmm_viterbi(sent, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_w
 
     return predicted_tags
 
+
 def hmm_eval(test_data, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts,e_tag_counts):
     """
     Receives: test data set and the parameters learned by hmm
     Returns an evaluation of the accuracy of hmm
     """
-    acc_viterbi = 0.0
-    ### YOUR CODE HERE
-    for sent in test_data:
-        hmm_viterbi(sent, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts,e_tag_counts)
-    raise NotImplementedError
-    ### END YOUR CODE
-    return acc_viterbi
+    num_of_words, num_of_correct_tags = 0, 0
+    for i, sent in enumerate(test_data):
+        if i % 100 == 0: print i
+        prediction = hmm_viterbi(sent, total_tokens, q_tri_counts, q_bi_counts,
+                                 q_uni_counts, e_word_tag_counts, e_tag_counts)
+        for i, (word, pos) in enumerate(sent):
+            num_of_words += 1
+            if pos == prediction[i]:
+                num_of_correct_tags += 1
+    return str(float(num_of_correct_tags)/num_of_words)
 
 if __name__ == "__main__":
     train_sents = read_conll_pos_file("Penn_Treebank/train.gold.conll")
