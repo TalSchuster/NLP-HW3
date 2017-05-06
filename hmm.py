@@ -1,6 +1,8 @@
 from data import *
 import numpy as np
 
+STOP = "STOP"
+
 def hmm_train(sents):
     """
         sents: list of tagged sentences
@@ -30,19 +32,36 @@ def hmm_train(sents):
                 q_bi_counts[bi] += 1
 
             if i >= 2:
-                tri = (sent[i-2], sent[i-1], sent[i])
+                tri = (sent[i-2][1], sent[i-1][1], sent[i])
                 if tri not in q_tri_counts:
                     q_tri_counts[tri] = 0
                 q_tri_counts[tri] += 1
+
+        # Add STOP to end of sentence for the viterbi run
+        if STOP not in q_uni_counts:
+            q_uni_counts[STOP] = 0
+        q_uni_counts[STOP] += 1
+
+        bi = (sent[-1][1], STOP)
+        if bi not in q_bi_counts:
+            q_bi_counts[bi] = 0
+        q_bi_counts[bi] += 1
+
+        tri = (sent[-2][1], sent[-1][1], STOP)
+        if tri not in q_tri_counts:
+            q_tri_counts[tri] = 0
+        q_tri_counts[tri] += 1
+
 
     # q_uni_counts, e_tag_counts is the same
     return total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts, q_uni_counts
 
 
-def prunning_policy(k, u, v):
+def prunning(e_word_tag_counts, e_tag_counts, factor = 0.01):
     """
-        Gets a word and candidate POS tags for it and for the precious one.
-        Returns True if tere's need to calculate pi(k,u,v)
+        Gets the emission probabilities and prunes the occurrences that have lower probability by a factor from the
+         maximal one.
+         NOT FINISHED
     """
     return True
 
