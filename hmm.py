@@ -47,14 +47,79 @@ def prunning_policy(k, u, v):
     return True
 
 
-def hmm_viterbi(sent, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts,e_tag_counts):
+def q_prob(prev_prev_tag, prev_tag, curr_tag, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts):
+    q = 0.0
+    trigram = (prev_prev_tag, prev_tag, curr_tag)
+    if trigram in q_tri_counts:
+        q += (lambda1 * q_tri_counts[trigram]) / q_bi_counts[(prev_prev_tag, prev_tag)]
+
+    bigram = (prev_tag, curr_tag)
+    if bigram in q_bi_counts:
+        q += (lambda2 * q_bi_counts[bigram]) / q_uni_counts[prev_tag]
+
+    if curr_tag in q_uni_counts:
+        q += (lambda3 * q_uni_counts[curr_tag])/total_tokens
+
+    return q
+
+
+def e_prob(word, pos, e_word_tag_counts, e_tag_counts):
+    word_pos = (word, pos)
+    if word_pos not in e_word_tag_counts:
+        return 0.0
+    return float(e_word_tag_counts[word_pos]) / e_tag_counts(pos)
+
+
+def hmm_viterbi(sent, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts, e_tag_counts):
     """
         Receives: a sentence to tag and the parameters learned by hmm
         Rerutns: predicted tags for the sentence
     """
     predicted_tags = [""] * (len(sent))
+    possible_tags = e_tag_counts.keys()
+    n = len(sent)
 
-    table = np.ones((len(sent), total_tokens, total_tokens))
+    # Preparing the table, it starts with zeros for pi(0,*,*) and for entries not filled because of prunning policy
+    table = np.zeros((n + 1, total_tokens, total_tokens), np.float32)
+    bp = np.zeros((n + 1, total_tokens, total_tokens), np.int8)
+
+    # Phase 1: Filling the table
+    for index, (word, _) in enumerate(sent):
+        k = index + 1
+        for u_index, u in enumerate(possible_tags):
+            for v_index, v in enumerate(possible_tags):
+                if prunning_policy(word, u, v):
+                    e = e_prob(word, v, e_word_tag_counts, e_tag_counts)
+                    if e == 0:
+                        continue
+                    max_val, max_bp = 0, 0
+                    for w_index, w in enumerate(possible_tags):
+                        val = table[k-1][w_index][u_index] \
+                              * q_prob(w, u, v, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts) * e
+                        if val > max_val:
+                            max_val = val
+                            max_bp = w_index
+                    table[k][u_index][v_index] = max_val
+                    bp[k][u_index][v_index] = max_bp
+
+    # Phase 2: Finding maximal assignment for y_(n-1), y_n according to the table
+    max_val, max_u, max_v = 0.0, "", ""
+    for u_index, u in enumerate(possible_tags):
+        for v_index, v in enumerate(possible_tags):
+            curr_val = table[n][u_index][v_index] \
+                       * q_prob(u, v, "STOP", total_tokens, q_tri_counts, q_bi_counts, q_uni_counts)
+            if curr_val > max_val:
+                max_val = curr_val
+                max_u, max_v = u_index, v_index
+    predicted_tags[n-1], y_k_2 = possible_tags[max_v], max_v
+    predicted_tags[n-2], y_k_1 = possible_tags[max_u], max_u
+
+    # Phase 3: Finding maximal assignment iteratively for all other words
+    for k in xrange(n-2, 0, -1):
+        predicted_tag_index = bp[k+2][y_k_1][y_k_2]
+        predicted_tags[k-1] = possible_tags[predicted_tag_index]
+        y_k_2 = y_k_1
+        y_k_1 = predicted_tag_index
 
     return predicted_tags
 
@@ -76,6 +141,9 @@ if __name__ == "__main__":
 
     train_sents = preprocess_sent(vocab, train_sents)
     dev_sents = preprocess_sent(vocab, dev_sents)
+
+    lambda1, lambda2 = 0.3, 0.3
+    lambda3 = 1 - lambda1 - lambda2
 
     total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts, e_tag_counts = hmm_train(train_sents)
     acc_viterbi = hmm_eval(dev_sents, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts,e_tag_counts)
