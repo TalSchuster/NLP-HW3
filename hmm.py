@@ -42,15 +42,17 @@ def hmm_train(sents):
             q_uni_counts[STOP] = 0
         q_uni_counts[STOP] += 1
 
-        bi = (sent[-1][1], STOP)
-        if bi not in q_bi_counts:
-            q_bi_counts[bi] = 0
-        q_bi_counts[bi] += 1
+        if len(sent) >= 1:
+            bi = (sent[-1][1], STOP)
+            if bi not in q_bi_counts:
+                q_bi_counts[bi] = 0
+            q_bi_counts[bi] += 1
 
-        tri = (sent[-2][1], sent[-1][1], STOP)
-        if tri not in q_tri_counts:
-            q_tri_counts[tri] = 0
-        q_tri_counts[tri] += 1
+        if len(sent) >= 2:
+            tri = (sent[-2][1], sent[-1][1], STOP)
+            if tri not in q_tri_counts:
+                q_tri_counts[tri] = 0
+            q_tri_counts[tri] += 1
 
 
     # q_uni_counts, e_tag_counts is the same
