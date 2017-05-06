@@ -1,7 +1,8 @@
 from data import *
 import numpy as np
 
-STOP = "STOP"
+STOP = ("STOP", "STOP")
+START = ("*", "*")
 
 def hmm_train(sents):
     """
@@ -13,8 +14,11 @@ def hmm_train(sents):
     q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts, e_tag_counts = {}, {}, {}, {}, {}
 
     for sent in sents:
+        sent.append(STOP)
         total_tokens += len(sent)
-        for i in xrange(len(sent)):
+        sent.insert(0,START)
+        sent.insert(0,START)
+        for i in xrange(1,len(sent)):
             word_tag = sent[i]
             if word_tag not in e_word_tag_counts:
                 e_word_tag_counts[word_tag] = 0
@@ -37,24 +41,6 @@ def hmm_train(sents):
                     q_tri_counts[tri] = 0
                 q_tri_counts[tri] += 1
 
-        # Add STOP to end of sentence for the viterbi run
-        if STOP not in q_uni_counts:
-            q_uni_counts[STOP] = 0
-        q_uni_counts[STOP] += 1
-
-        if len(sent) >= 1:
-            bi = (sent[-1][1], STOP)
-            if bi not in q_bi_counts:
-                q_bi_counts[bi] = 0
-            q_bi_counts[bi] += 1
-
-        if len(sent) >= 2:
-            tri = (sent[-2][1], sent[-1][1], STOP)
-            if tri not in q_tri_counts:
-                q_tri_counts[tri] = 0
-            q_tri_counts[tri] += 1
-
-
     # q_uni_counts, e_tag_counts is the same
     return total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts, q_uni_counts
 
@@ -63,8 +49,17 @@ def prunning(e_word_tag_counts, e_tag_counts, factor = 0.01):
     """
         Gets the emission probabilities and prunes the occurrences that have lower probability by a factor from the
          maximal one.
-         NOT FINISHED
     """
+    # TODO
+    raise NotImplementedError
+
+    words = {}
+    for word, tag in e_word_tag_counts.keys():
+        if word not in words:
+            words[word] = numpy.array()
+
+
+
     return True
 
 
