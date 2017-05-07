@@ -23,7 +23,7 @@ def extract_features_base(curr_word, next_word, prev_word, prevprev_word, prev_t
     features['word_prevprev'] = prevprev_word
     features['word_next'] = next_word
     features['prev_tag'] = prev_tag
-    features['prev_tags'] = (prevprev_tag, prev_tag)
+    features['prev_tags'] = '%s,%s' % (prevprev_tag, prev_tag)
     for i in xrange(1,min(5,len(curr_word))):
         prefix_str = 'prefix_%s' % (i)
         suffix_str = 'suffix_%s' % (i)
@@ -44,7 +44,7 @@ def extract_features_base_test():
         'word_prevprev': '*',
         'word_next': 'fast',
         'prev_tag': 'A',
-        'prev_tags': ('B','A'),
+        'prev_tags': 'B,A',
         'prefix_1': 'w',
         'prefix_2': 'wa',
         'prefix_3': 'wal',
@@ -196,6 +196,7 @@ if __name__ == "__main__":
     all_examples.extend(dev_examples)
 
     print "Vectorize examples"
+    #vec = vectorize_features(vec, all_examples)
     all_examples_vectorized = vec.fit_transform(all_examples)
     train_examples_vectorized = all_examples_vectorized[:num_train_examples]
     dev_examples_vectorized = all_examples_vectorized[num_train_examples:]
