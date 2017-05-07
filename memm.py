@@ -124,9 +124,58 @@ def memm_viterbi(sent, logreg, vec):
         Rerutns: predicted tags for the sentence
     """
     predicted_tags = [""] * (len(sent))
-    ### YOUR CODE HERE
-    raise NotImplementedError
-    ### END YOUR CODE
+    probs = logreg.predict_proba()
+    possible_tags = e_tag_counts.keys()
+    s = len(possible_tags)
+    n = len(sent)
+
+    # Preparing the table, it starts with zeros for pi(0,*,*) and for entries not filled because of prunning policy
+    table = np.zeros((n + 1, s + 1, s + 1), np.float64)
+    table[0][s][s] = 1.0
+    bp = np.zeros((n + 1, s + 1, s + 1), np.int8)
+
+    # Phase 1: Filling the table
+    for index, (word, _) in enumerate(sent):
+        k = index + 1
+        for v_index, v in enumerate(possible_tags):
+            e = e_prob(word, v, e_word_tag_counts, e_tag_counts)
+            if e == 0:
+                continue
+            for u_index, u in enumerate(possible_tag_set(possible_tags, k, False)):
+                if u == "*":
+                    u_index = s
+                max_val, max_bp = 0, 0
+                for w_index, w in enumerate(possible_tag_set(possible_tags, k, True)):
+                    if w == "*":
+                        w_index = s
+                    q = q_prob(w, u, v, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts)
+                    val = table[k-1][w_index][u_index] * q * e
+                    if val > max_val:
+                        max_val = val
+                        max_bp = w_index
+                # if max_val == 0: print "prob val"
+                table[k][u_index][v_index] = max_val
+                bp[k][u_index][v_index] = max_bp
+
+    # Phase 2: Finding maximal assignment for y_(n-1), y_n according to the table
+    max_val, max_u, max_v = 0.0, 0, 0
+    for u_index, u in enumerate(possible_tags):
+        for v_index, v in enumerate(possible_tags):
+            curr_val = table[n][u_index][v_index] \
+                       * q_prob(u, v, "STOP", total_tokens, q_tri_counts, q_bi_counts, q_uni_counts)
+            if curr_val > max_val:
+                max_val = curr_val
+                max_u, max_v = u_index, v_index
+    predicted_tags[n-1], y_k_2 = possible_tags[max_v], max_v
+    predicted_tags[n-2], y_k_1 = possible_tags[max_u], max_u
+
+    # Phase 3: Finding maximal assignment iteratively for all other words
+    for k in xrange(n-2, 0, -1):
+        predicted_tag_index = bp[k+2][y_k_1][y_k_2]
+        predicted_tags[k-1] = possible_tags[predicted_tag_index]
+        y_k_2 = y_k_1
+        y_k_1 = predicted_tag_index
+
     return predicted_tags
 
 
