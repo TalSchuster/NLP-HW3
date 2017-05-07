@@ -94,6 +94,7 @@ def vectorize_features(vec, features):
     example = [features]
     return vec.transform(example)
 
+
 def create_examples(sents):
     print "building examples"
     examples = []
@@ -108,16 +109,14 @@ def create_examples(sents):
     return examples, labels
     print "done"
 
-def memm_greeedy(sent, logreg, vec):
+
+def memm_greeedy(sent, logreg):
     """
         Receives: a sentence to tag and the parameters learned by hmm
         Rerutns: predicted tags for the sentence
     """
-    predicted_tags = [""] * (len(sent))
-    ### YOUR CODE HERE
-    raise NotImplementedError
-    ### END YOUR CODE
-    return predicted_tags
+    return list(logreg.predict(sent))
+
 
 def memm_viterbi(sent, logreg, vec):
     """
@@ -130,16 +129,31 @@ def memm_viterbi(sent, logreg, vec):
     ### END YOUR CODE
     return predicted_tags
 
-def memm_eval(test_data, logreg, vec):
+
+def memm_eval(test_data, vectorized_dev_data, logreg):
     """
     Receives: test data set and the parameters learned by hmm
     Returns an evaluation of the accuracy of hmm & greedy hmm
     """
-    acc_viterbi, acc_greedy = 0.0, 0.0
-    ### YOUR CODE HERE
-    raise NotImplementedError
-    ### END YOUR CODE
-    return acc_viterbi, acc_greedy
+    num_of_words, num_of_correct_in_greedy, num_of_correct_in_viterbi = 0, 0, 0
+
+    for sent in test_data:
+        sent_vecrtorized = vectorized_dev_data[num_of_words:num_of_words+len(sent)]
+
+        viterbi_tags = memm_viterbi(sent_vecrtorized, logreg, vec)
+        greedy_tags = memm_greeedy(sent_vecrtorized, logreg, vec)
+
+        for index, (word, tag) in enumerate(sent):
+            num_of_words += 1
+
+            if viterbi_tags[index] == tag:
+                num_of_correct_in_viterbi += 1
+
+            if greedy_tags[index] == tag:
+                num_of_correct_in_greedy += 1
+
+    return float(num_of_correct_in_viterbi)/num_of_words, float(num_of_correct_in_greedy)/num_of_words
+
 
 if __name__ == "__main__":
     extract_features_base_test()
@@ -194,7 +208,7 @@ if __name__ == "__main__":
     print "done, " + str(end - start) + " sec"
     #End of log linear model training
 
-    acc_viterbi, acc_greedy = memm_eval(dev_sents, logreg, vec)
+    acc_viterbi, acc_greedy = memm_eval(dev_sents, dev_examples_vectorized, logreg, vec)
     print "dev: acc memm greedy: " + acc_greedy
     print "dev: acc memm viterbi: " + acc_viterbi
     if os.path.exists('Penn_Treebank/test.gold.conll'):

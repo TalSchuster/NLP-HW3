@@ -195,7 +195,7 @@ if __name__ == "__main__":
     train_sents = preprocess_sent(vocab, train_sents)
     dev_sents = preprocess_sent(vocab, dev_sents)
 
-    lambda1, lambda2 = 0.3, 0.3
+    lambda1, lambda2 = 0.95, 0.05
     lambda3 = 1 - lambda1 - lambda2
 
     total_tokens, q_tri_counts, q_bi_counts, q_uni_counts, e_word_tag_counts, e_tag_counts = hmm_train(train_sents)
