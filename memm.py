@@ -3,6 +3,15 @@ from sklearn.feature_extraction import DictVectorizer
 from sklearn import linear_model
 import time
 
+def hasNumbers(inputString):
+    return any(char.isdigit() for char in inputString)
+
+def hasUpper(inputString):
+    return any(char.isupper() for char in inputString)
+
+def hasHyphen(inputString):
+    return any(char=='-' for char in inputString)
+
 def extract_features_base(curr_word, next_word, prev_word, prevprev_word, prev_tag, prevprev_tag):
     """
         Receives: a word's local information
@@ -10,10 +19,61 @@ def extract_features_base(curr_word, next_word, prev_word, prevprev_word, prev_t
     """
     features = {}
     features['word'] = curr_word
-    ### YOUR CODE HERE
-    raise NotImplementedError
-    ### END YOUR CODE
+    features['word_prev'] = prev_word
+    features['word_prevprev'] = prevprev_word
+    features['word_next'] = next_word
+    features['prev_tag'] = prev_tag
+    features['prev_tags'] = (prevprev_tag, prev_tag)
+    for i in xrange(1,min(5,len(curr_word))):
+        prefix_str = 'prefix_%s' % (i)
+        suffix_str = 'suffix_%s' % (i)
+        features[prefix_str] = curr_word[:i]
+        features[suffix_str] = curr_word[-i:]
+
+    features['contains_number'] = hasNumbers(curr_word)
+    features['contains_upper'] = hasUpper(curr_word)
+    features['contains_hyphen'] = hasHyphen(curr_word)
+
     return features
+
+def extract_features_base_test():
+    pred = extract_features_base('walked', 'fast', 'he', '*', 'A', 'B')
+    ans = {
+        'word': 'walked',
+        'word_prev': 'he',
+        'word_prevprev': '*',
+        'word_next': 'fast',
+        'prev_tag': 'A',
+        'prev_tags': ('B','A'),
+        'prefix_1': 'w',
+        'prefix_2': 'wa',
+        'prefix_3': 'wal',
+        'prefix_4': 'walk',
+        'prefix_5': 'walke',
+        'suffix_5': 'alked',
+        'suffix_4': 'lked',
+        'suffix_3': 'ked',
+        'suffix_2': 'ed',
+        'suffix_1': 'd',
+        'contains_number': False,
+        'contains_upper': False,
+        'contains_hyphen': False,
+    }
+    for key in pred.keys():
+        if pred[key] != ans[key]:
+            raise ValueError('feature %s not equal: %s != %s' %(key, pred[key], ans[key]))
+
+    pred = extract_features_base('Walked', 'fast', 'he', '*', 'A', 'B')
+    if not pred['contains_upper']:
+        raise ValueError('feature contains_upper should be true but got false')
+
+    pred = extract_features_base('walk3d', 'fast', 'he', '*', 'A', 'B')
+    if not pred['contains_number']:
+        raise ValueError('feature contains_number should be true but got false')
+
+    pred = extract_features_base('wal-ked', 'fast', 'he', '*', 'A', 'B')
+    if not pred['contains_hyphen']:
+        raise ValueError('feature contains_upper should be true but got false')
 
 def extract_features(sentence, i):
     curr_word = sentence[i][0]
@@ -96,6 +156,8 @@ def memm_eval(test_data, vectorized_dev_data, logreg):
 
 
 if __name__ == "__main__":
+    extract_features_base_test()
+
     train_sents = read_conll_pos_file("Penn_Treebank/train.gold.conll")
     dev_sents = read_conll_pos_file("Penn_Treebank/dev.gold.conll")
 
