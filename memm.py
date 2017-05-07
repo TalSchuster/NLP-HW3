@@ -3,6 +3,15 @@ from sklearn.feature_extraction import DictVectorizer
 from sklearn import linear_model
 import time
 
+def hasNumbers(inputString):
+    return any(char.isdigit() for char in inputString)
+
+def hasUpper(inputString):
+    return any(char.isupper() for char in inputString)
+
+def hasHyphen(inputString):
+    return any(char=='-' for char in inputString)
+
 def extract_features_base(curr_word, next_word, prev_word, prevprev_word, prev_tag, prevprev_tag):
     """
         Receives: a word's local information
@@ -10,9 +19,21 @@ def extract_features_base(curr_word, next_word, prev_word, prevprev_word, prev_t
     """
     features = {}
     features['word'] = curr_word
-    ### YOUR CODE HERE
-    raise NotImplementedError
-    ### END YOUR CODE
+    features['word_prev'] = prev_word
+    features['word_prevprev'] = prevprev_word
+    features['word_next'] = next_word
+    features['prev_tag'] = prev_tag
+    features['prev_tags'] = (prevprev_tag, prev_tag)
+    for i in xrange(1,min(5,len(curr_word))):
+        prefix_str = 'prefix_%s' % (i)
+        suffix_str = 'suffix_%s' % (i)
+        features[prefix_str] = curr_word[:i]
+        features[suffix_str] = curr_word[-i:]
+
+    features['contains_number'] = hasNumbers(curr_word)
+    features['contains_upper'] = hasUpper(curr_word)
+    features['contains_hyphen'] = hasHyphen(curr_word)
+
     return features
 
 def extract_features(sentence, i):
