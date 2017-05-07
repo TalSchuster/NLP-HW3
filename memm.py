@@ -110,13 +110,12 @@ def create_examples(sents):
     print "done"
 
 
-def memm_greeedy(sent, logreg, index_to_tag_dict):
+def memm_greeedy(sent, logreg):
     """
         Receives: a sentence to tag and the parameters learned by hmm
         Rerutns: predicted tags for the sentence
     """
-    tags_ints = list(logreg.predict(sent))
-    return [index_to_tag_dict[tag_int] for tag_int in tags_ints]
+    return list(logreg.predict(sent))
 
 
 def memm_viterbi(sent, logreg, vec):
@@ -180,7 +179,7 @@ def memm_viterbi(sent, logreg, vec):
     return predicted_tags
 
 
-def memm_eval(test_data, vectorized_dev_data, logreg, index_to_tag_dict):
+def memm_eval(test_data, vectorized_dev_data, logreg):
     """
     Receives: test data set and the parameters learned by hmm
     Returns an evaluation of the accuracy of hmm & greedy hmm
@@ -190,16 +189,17 @@ def memm_eval(test_data, vectorized_dev_data, logreg, index_to_tag_dict):
     for sent in test_data:
         sent_vecrtorized = vectorized_dev_data[num_of_words:num_of_words+len(sent)]
 
-        viterbi_tags = memm_viterbi(sent_vecrtorized, logreg, index_to_tag_dict)
-        greedy_tags = memm_greeedy(sent_vecrtorized, logreg, index_to_tag_dict)
+        viterbi_tags = memm_viterbi(sent_vecrtorized, logreg)
+        greedy_tags = memm_greeedy(sent_vecrtorized, logreg)
 
         for index, (word, tag) in enumerate(sent):
             num_of_words += 1
+            tag_index = tagset[tag]
 
-            if viterbi_tags[index] == tag:
+            if viterbi_tags[index] == tag_index:
                 num_of_correct_in_viterbi += 1
 
-            if greedy_tags[index] == tag:
+            if greedy_tags[index] == tag_index:
                 num_of_correct_in_greedy += 1
 
     return float(num_of_correct_in_viterbi)/num_of_words, float(num_of_correct_in_greedy)/num_of_words
@@ -229,14 +229,12 @@ if __name__ == "__main__":
     vec = DictVectorizer()
     print "Create train examples"
     train_examples, train_labels = create_examples(train_sents)
-    train_labels_indices = [tagset[tag] for tag in train_labels]
     num_train_examples = len(train_examples)
     print "#example: " + str(num_train_examples)
     print "Done"
 
     print "Create dev examples"
     dev_examples, dev_labels = create_examples(dev_sents)
-    dev_labels_indices = [tagset[tag] for tag in dev_labels]
     num_dev_examples = len(dev_examples)
     print "#example: " + str(num_dev_examples)
     print "Done"
@@ -255,7 +253,7 @@ if __name__ == "__main__":
         multi_class='multinomial', max_iter=128, solver='lbfgs', C=100000, verbose=1)
     print "Fitting..."
     start = time.time()
-    logreg.fit(train_examples_vectorized, train_labels_indices)
+    logreg.fit(train_examples_vectorized, train_labels)
     end = time.time()
     print "done, " + str(end - start) + " sec"
     #End of log linear model training
