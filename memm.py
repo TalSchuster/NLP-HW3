@@ -2,6 +2,10 @@ from data import *
 from sklearn.feature_extraction import DictVectorizer
 from sklearn import linear_model
 import time
+import pickle
+import os
+
+MODEL_FILE_NAME = 'saved_model.pickle'
 
 def hasNumbers(inputString):
     return any(char.isdigit() for char in inputString)
@@ -110,22 +114,26 @@ def create_examples(sents):
     print "done"
 
 
-def memm_greeedy(sent, logreg):
+def memm_greedy(sent, logreg):
     """
         Receives: a sentence to tag and the parameters learned by hmm
         Rerutns: predicted tags for the sentence
     """
     return list(logreg.predict(sent))
 
+def possible_tag_set(tag_set, curr_index, for_prev_prev=True):
+    if curr_index > 2 or (curr_index == 2 and not for_prev_prev):
+        return tag_set
+    return ["*"]
 
-def memm_viterbi(sent, logreg, vec):
+def memm_viterbi(sent, logreg):
     """
         Receives: a sentence to tag and the parameters learned by hmm
         Rerutns: predicted tags for the sentence
     """
-    predicted_tags = [""] * (len(sent))
-    probs = logreg.predict_proba()
-    possible_tags = e_tag_counts.keys()
+    #predicted_tags = [""] * (len(sent))
+    predicted_tags = [""] * sent.shape[0]
+    possible_tags = index_to_tag_dict.keys()
     s = len(possible_tags)
     n = len(sent)
 
@@ -138,9 +146,6 @@ def memm_viterbi(sent, logreg, vec):
     for index, (word, _) in enumerate(sent):
         k = index + 1
         for v_index, v in enumerate(possible_tags):
-            e = e_prob(word, v, e_word_tag_counts, e_tag_counts)
-            if e == 0:
-                continue
             for u_index, u in enumerate(possible_tag_set(possible_tags, k, False)):
                 if u == "*":
                     u_index = s
@@ -148,7 +153,7 @@ def memm_viterbi(sent, logreg, vec):
                 for w_index, w in enumerate(possible_tag_set(possible_tags, k, True)):
                     if w == "*":
                         w_index = s
-                    q = q_prob(w, u, v, total_tokens, q_tri_counts, q_bi_counts, q_uni_counts)
+                    q = logreg.predict_proba()
                     val = table[k-1][w_index][u_index] * q * e
                     if val > max_val:
                         max_val = val
@@ -190,7 +195,7 @@ def memm_eval(test_data, vectorized_dev_data, logreg):
         sent_vecrtorized = vectorized_dev_data[num_of_words:num_of_words+len(sent)]
 
         viterbi_tags = memm_viterbi(sent_vecrtorized, logreg)
-        greedy_tags = memm_greeedy(sent_vecrtorized, logreg)
+        greedy_tags = memm_greedy(sent_vecrtorized, logreg)
 
         for index, (word, tag) in enumerate(sent):
             num_of_words += 1
@@ -251,19 +256,24 @@ if __name__ == "__main__":
 
     logreg = linear_model.LogisticRegression(
         multi_class='multinomial', max_iter=128, solver='lbfgs', C=100000, verbose=1)
-    print "Fitting..."
-    start = time.time()
-    logreg.fit(train_examples_vectorized, train_labels)
-    end = time.time()
-    print "done, " + str(end - start) + " sec"
+    if MODEL_FILE_NAME != '' and os.path.exists(MODEL_FILE_NAME):
+        print 'loading existing model from file'
+        logreg = pickle.load(open(MODEL_FILE_NAME, 'rb'))
+    else:
+        print "Fitting..."
+        start = time.time()
+        logreg.fit(train_examples_vectorized, train_labels)
+        end = time.time()
+        print "done, " + str(end - start) + " sec"
+        pickle.dump(logreg, open(MODEL_FILE_NAME, 'wb'))
     #End of log linear model training
 
-    acc_viterbi, acc_greedy = memm_eval(dev_sents, dev_examples_vectorized, logreg, index_to_tag_dict)
-    print "dev: acc memm greedy: " + acc_greedy
-    print "dev: acc memm viterbi: " + acc_viterbi
+    acc_viterbi, acc_greedy = memm_eval(dev_sents, dev_examples_vectorized, logreg)
+    print "dev: acc memm greedy: " + str(acc_greedy)
+    print "dev: acc memm viterbi: " + str(acc_viterbi)
     if os.path.exists('Penn_Treebank/test.gold.conll'):
         test_sents = read_conll_pos_file("Penn_Treebank/test.gold.conll")
         test_sents = preprocess_sent(vocab, test_sents)
         acc_viterbi, acc_greedy = memm_eval(test_sents, logreg, vec)
-        print "test: acc memmm greedy: " + acc_greedy
-        print "test: acc memmm viterbi: " + acc_viterbi
+        print "test: acc memmm greedy: " + str(acc_greedy)
+        print "test: acc memmm viterbi: " + str(acc_viterbi)
