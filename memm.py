@@ -110,12 +110,13 @@ def create_examples(sents):
     print "done"
 
 
-def memm_greeedy(sent, logreg):
+def memm_greeedy(sent, logreg, index_to_tag_dict):
     """
         Receives: a sentence to tag and the parameters learned by hmm
         Rerutns: predicted tags for the sentence
     """
-    return list(logreg.predict(sent))
+    tags_ints = list(logreg.predict(sent))
+    return [index_to_tag_dict[tag_int] for tag_int in tags_ints]
 
 
 def memm_viterbi(sent, logreg, vec):
@@ -130,7 +131,7 @@ def memm_viterbi(sent, logreg, vec):
     return predicted_tags
 
 
-def memm_eval(test_data, vectorized_dev_data, logreg):
+def memm_eval(test_data, vectorized_dev_data, logreg, index_to_tag_dict):
     """
     Receives: test data set and the parameters learned by hmm
     Returns an evaluation of the accuracy of hmm & greedy hmm
@@ -140,8 +141,8 @@ def memm_eval(test_data, vectorized_dev_data, logreg):
     for sent in test_data:
         sent_vecrtorized = vectorized_dev_data[num_of_words:num_of_words+len(sent)]
 
-        viterbi_tags = memm_viterbi(sent_vecrtorized, logreg, vec)
-        greedy_tags = memm_greeedy(sent_vecrtorized, logreg, vec)
+        viterbi_tags = memm_viterbi(sent_vecrtorized, logreg, index_to_tag_dict)
+        greedy_tags = memm_greeedy(sent_vecrtorized, logreg, index_to_tag_dict)
 
         for index, (word, tag) in enumerate(sent):
             num_of_words += 1
@@ -179,12 +180,14 @@ if __name__ == "__main__":
     vec = DictVectorizer()
     print "Create train examples"
     train_examples, train_labels = create_examples(train_sents)
+    train_labels_indices = [tagset[tag] for tag in train_labels]
     num_train_examples = len(train_examples)
     print "#example: " + str(num_train_examples)
     print "Done"
 
     print "Create dev examples"
     dev_examples, dev_labels = create_examples(dev_sents)
+    dev_labels_indices = [tagset[tag] for tag in dev_labels]
     num_dev_examples = len(dev_examples)
     print "#example: " + str(num_dev_examples)
     print "Done"
@@ -202,12 +205,12 @@ if __name__ == "__main__":
         multi_class='multinomial', max_iter=128, solver='lbfgs', C=100000, verbose=1)
     print "Fitting..."
     start = time.time()
-    logreg.fit(train_examples_vectorized, train_labels)
+    logreg.fit(train_examples_vectorized, train_labels_indices)
     end = time.time()
     print "done, " + str(end - start) + " sec"
     #End of log linear model training
 
-    acc_viterbi, acc_greedy = memm_eval(dev_sents, dev_examples_vectorized, logreg, vec)
+    acc_viterbi, acc_greedy = memm_eval(dev_sents, dev_examples_vectorized, logreg, index_to_tag_dict)
     print "dev: acc memm greedy: " + acc_greedy
     print "dev: acc memm viterbi: " + acc_viterbi
     if os.path.exists('Penn_Treebank/test.gold.conll'):
