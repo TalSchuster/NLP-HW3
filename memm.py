@@ -36,6 +36,45 @@ def extract_features_base(curr_word, next_word, prev_word, prevprev_word, prev_t
 
     return features
 
+def extract_features_base_test():
+    pred = extract_features_base('walked', 'fast', 'he', '*', 'A', 'B')
+    ans = {
+        'word': 'walked',
+        'word_prev': 'he',
+        'word_prevprev': '*',
+        'word_next': 'fast',
+        'prev_tag': 'A',
+        'prev_tags': ('B','A'),
+        'prefix_1': 'w',
+        'prefix_2': 'wa',
+        'prefix_3': 'wal',
+        'prefix_4': 'walk',
+        'prefix_5': 'walke',
+        'suffix_5': 'alked',
+        'suffix_4': 'lked',
+        'suffix_3': 'ked',
+        'suffix_2': 'ed',
+        'suffix_1': 'd',
+        'contains_number': False,
+        'contains_upper': False,
+        'contains_hyphen': False,
+    }
+    for key in pred.keys():
+        if pred[key] != ans[key]:
+            raise ValueError('feature %s not equal: %s != %s' %(key, pred[key], ans[key]))
+
+    pred = extract_features_base('Walked', 'fast', 'he', '*', 'A', 'B')
+    if not pred['contains_upper']:
+        raise ValueError('feature contains_upper should be true but got false')
+
+    pred = extract_features_base('walk3d', 'fast', 'he', '*', 'A', 'B')
+    if not pred['contains_number']:
+        raise ValueError('feature contains_number should be true but got false')
+
+    pred = extract_features_base('wal-ked', 'fast', 'he', '*', 'A', 'B')
+    if not pred['contains_hyphen']:
+        raise ValueError('feature contains_upper should be true but got false')
+
 def extract_features(sentence, i):
     curr_word = sentence[i][0]
     prev_token = sentence[i - 1] if i > 0 else ('<s>', '*')
@@ -103,6 +142,8 @@ def memm_eval(test_data, logreg, vec):
     return acc_viterbi, acc_greedy
 
 if __name__ == "__main__":
+    extract_features_base_test()
+
     train_sents = read_conll_pos_file("Penn_Treebank/train.gold.conll")
     dev_sents = read_conll_pos_file("Penn_Treebank/dev.gold.conll")
 
