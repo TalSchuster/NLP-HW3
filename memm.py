@@ -1,11 +1,32 @@
 from data import *
 from sklearn.feature_extraction import DictVectorizer
 from sklearn import linear_model
+import numpy as np
 import time
 import pickle
 import os
+import timeit
 
-MODEL_FILE_NAME = 'saved_model.pickle'
+MODEL_FILE_NAME = 'saved_model.pickle' # Use empty string to disable storing.
+GREEDY_FILE_NAME = 'greedy_tags.pickle'
+VITERBI_FILE_NAME = 'viterbi_tags.pickle'
+
+class q_values_cache:
+    """
+    Holds a cache for computed q probabilities
+    """
+
+    def __init__(self, logreg):
+        self.logreg = logreg
+        self.cache = {}
+
+    def get_prob(self, tag_index, features):
+        if features in self.cache:
+            return self.cache[features][tag_index]
+
+        self.cache[features] = self.logreg.predict_proba(features)[0]
+        return self.cache[features][tag_index]
+
 
 def hasNumbers(inputString):
     return any(char.isdigit() for char in inputString)
@@ -131,33 +152,33 @@ def memm_viterbi(sent, logreg):
         Receives: a sentence to tag and the parameters learned by hmm
         Rerutns: predicted tags for the sentence
     """
-    #predicted_tags = [""] * (len(sent))
     predicted_tags = [""] * sent.shape[0]
+    q_values = q_values_cache(logreg)
     possible_tags = index_to_tag_dict.keys()
     s = len(possible_tags)
-    n = len(sent)
+    n = sent.shape[0]
 
-    # Preparing the table, it starts with zeros for pi(0,*,*) and for entries not filled because of prunning policy
+    # Preparing the table, it starts with zeros for pi(0,*,*)
     table = np.zeros((n + 1, s + 1, s + 1), np.float64)
     table[0][s][s] = 1.0
     bp = np.zeros((n + 1, s + 1, s + 1), np.int8)
 
     # Phase 1: Filling the table
-    for index, (word, _) in enumerate(sent):
+    for index, features in enumerate(sent):
         k = index + 1
         for v_index, v in enumerate(possible_tags):
             for u_index, u in enumerate(possible_tag_set(possible_tags, k, False)):
                 if u == "*":
                     u_index = s
                 max_val, max_bp = 0, 0
-                for w_index, w in enumerate(possible_tag_set(possible_tags, k, True)):
-                    if w == "*":
-                        w_index = s
-                    q = logreg.predict_proba()
-                    val = table[k-1][w_index][u_index] * q * e
+                for t_index, t in enumerate(possible_tag_set(possible_tags, k, True)):
+                    if t == "*":
+                        t_index = s
+                    q = q_values.get_prob(v, features)
+                    val = table[k-1][t_index][u_index] * q
                     if val > max_val:
                         max_val = val
-                        max_bp = w_index
+                        max_bp = t_index
                 # if max_val == 0: print "prob val"
                 table[k][u_index][v_index] = max_val
                 bp[k][u_index][v_index] = max_bp
@@ -166,8 +187,7 @@ def memm_viterbi(sent, logreg):
     max_val, max_u, max_v = 0.0, 0, 0
     for u_index, u in enumerate(possible_tags):
         for v_index, v in enumerate(possible_tags):
-            curr_val = table[n][u_index][v_index] \
-                       * q_prob(u, v, "STOP", total_tokens, q_tri_counts, q_bi_counts, q_uni_counts)
+            curr_val = table[n][u_index][v_index]
             if curr_val > max_val:
                 max_val = curr_val
                 max_u, max_v = u_index, v_index
@@ -191,9 +211,15 @@ def memm_eval(test_data, vectorized_dev_data, logreg):
     """
     num_of_words, num_of_correct_in_greedy, num_of_correct_in_viterbi = 0, 0, 0
 
-    for sent in test_data:
-        sent_vecrtorized = vectorized_dev_data[num_of_words:num_of_words+len(sent)]
+    start_time = timeit.default_timer()
+    for i, sent in enumerate(test_data):
+        if i % 10 == 0 and i != 0:
+            stop_time = timeit.default_timer()
+            print "Evaluated %i sentences. Time: %.1f seconds. Greedy Acc: %.2f. Viterbi Acc: %.2f" \
+                  % (i, stop_time - start_time, float(num_of_correct_in_greedy) / num_of_words * 100 \
+                    , float(num_of_correct_in_viterbi) / num_of_words * 100)
 
+        sent_vecrtorized = vectorized_dev_data[num_of_words:num_of_words+len(sent)]
         viterbi_tags = memm_viterbi(sent_vecrtorized, logreg)
         greedy_tags = memm_greedy(sent_vecrtorized, logreg)
 
@@ -206,6 +232,14 @@ def memm_eval(test_data, vectorized_dev_data, logreg):
 
             if greedy_tags[index] == tag_index:
                 num_of_correct_in_greedy += 1
+
+    if VITERBI_FILE_NAME != '':
+        print 'saving viterbi labels to file: ' + VITERBI_FILE_NAME
+        pickle.dump(viterbi_tags, open(VITERBI_FILE_NAME, 'wb'))
+
+    if GREEDY_FILE_NAME != '':
+        print 'saving greedy labels to file: ' + GREEDY_FILE_NAME
+        pickle.dump(greedy_tags, open(GREEDY_FILE_NAME, 'wb'))
 
     return float(num_of_correct_in_viterbi)/num_of_words, float(num_of_correct_in_greedy)/num_of_words
 
@@ -259,13 +293,16 @@ if __name__ == "__main__":
     if MODEL_FILE_NAME != '' and os.path.exists(MODEL_FILE_NAME):
         print 'loading existing model from file'
         logreg = pickle.load(open(MODEL_FILE_NAME, 'rb'))
+        print 'Done'
     else:
         print "Fitting..."
         start = time.time()
         logreg.fit(train_examples_vectorized, train_labels)
         end = time.time()
         print "done, " + str(end - start) + " sec"
-        pickle.dump(logreg, open(MODEL_FILE_NAME, 'wb'))
+        if MODEL_FILE_NAME != '':
+            print 'saving model to file: ' + MODEL_FILE_NAME
+            pickle.dump(logreg, open(MODEL_FILE_NAME, 'wb'))
     #End of log linear model training
 
     acc_viterbi, acc_greedy = memm_eval(dev_sents, dev_examples_vectorized, logreg)
