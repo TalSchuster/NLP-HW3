@@ -212,6 +212,8 @@ def memm_eval(test_data, vectorized_dev_data, logreg):
     num_of_words, num_of_correct_in_greedy, num_of_correct_in_viterbi = 0, 0, 0
 
     start_time = timeit.default_timer()
+    all_viterbi_tags = []
+    all_greedy_tags = []
     for i, sent in enumerate(test_data):
         if i % 10 == 0 and i != 0:
             stop_time = timeit.default_timer()
@@ -222,6 +224,8 @@ def memm_eval(test_data, vectorized_dev_data, logreg):
         sent_vecrtorized = vectorized_dev_data[num_of_words:num_of_words+len(sent)]
         viterbi_tags = memm_viterbi(sent_vecrtorized, logreg)
         greedy_tags = memm_greedy(sent_vecrtorized, logreg)
+        all_viterbi_tags.append(viterbi_tags)
+        all_greedy_tags.append(greedy_tags)
 
         for index, (word, tag) in enumerate(sent):
             num_of_words += 1
@@ -235,11 +239,11 @@ def memm_eval(test_data, vectorized_dev_data, logreg):
 
     if VITERBI_FILE_NAME != '':
         print 'saving viterbi labels to file: ' + VITERBI_FILE_NAME
-        pickle.dump(viterbi_tags, open(VITERBI_FILE_NAME, 'wb'))
+        pickle.dump(all_viterbi_tags, open(VITERBI_FILE_NAME, 'wb'))
 
     if GREEDY_FILE_NAME != '':
         print 'saving greedy labels to file: ' + GREEDY_FILE_NAME
-        pickle.dump(greedy_tags, open(GREEDY_FILE_NAME, 'wb'))
+        pickle.dump(all_greedy_tags, open(GREEDY_FILE_NAME, 'wb'))
 
     return float(num_of_correct_in_viterbi)/num_of_words, float(num_of_correct_in_greedy)/num_of_words
 
