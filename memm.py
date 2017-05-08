@@ -7,7 +7,8 @@ import pickle
 import os
 import timeit
 
-MODEL_FILE_NAME = 'saved_model.pickle' # Use empty string to disable storing.
+# Use empty string to prevent storing.
+MODEL_FILE_NAME = 'saved_model.pickle'
 GREEDY_FILE_NAME = 'greedy_tags.pickle'
 VITERBI_FILE_NAME = 'viterbi_tags.pickle'
 
@@ -49,15 +50,18 @@ def extract_features_base(curr_word, next_word, prev_word, prevprev_word, prev_t
     features['word_next'] = next_word
     features['prev_tag'] = prev_tag
     features['prev_tags'] = '%s,%s' % (prevprev_tag, prev_tag)
-    for i in xrange(1,min(5,len(curr_word))):
-        prefix_str = 'prefix_%s' % (i)
-        suffix_str = 'suffix_%s' % (i)
-        features[prefix_str] = curr_word[:i]
-        features[suffix_str] = curr_word[-i:]
 
-    features['contains_number'] = hasNumbers(curr_word)
-    features['contains_upper'] = hasUpper(curr_word)
-    features['contains_hyphen'] = hasHyphen(curr_word)
+    # Relevant only for non rare words
+    if curr_word not in REGS.keys():
+        for i in xrange(1,min(5,len(curr_word))):
+            prefix_str = 'prefix_%s' % (i)
+            suffix_str = 'suffix_%s' % (i)
+            features[prefix_str] = curr_word[:i]
+            features[suffix_str] = curr_word[-i:]
+
+        features['contains_number'] = hasNumbers(curr_word)
+        features['contains_upper'] = hasUpper(curr_word)
+        features['contains_hyphen'] = hasHyphen(curr_word)
 
     return features
 
@@ -233,6 +237,8 @@ def memm_eval(test_data, vectorized_dev_data, logreg):
 
             if viterbi_tags[index] == tag_index:
                 num_of_correct_in_viterbi += 1
+            #else:
+            #    print word, index_to_tag_dict[viterbi_tags[index]], tag, sent
 
             if greedy_tags[index] == tag_index:
                 num_of_correct_in_greedy += 1
