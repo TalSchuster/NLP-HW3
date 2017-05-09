@@ -144,7 +144,16 @@ def memm_greedy(sent, logreg, vec):
         Receives: a sentence to tag and the parameters learned by hmm
         Rerutns: predicted tags for the sentence
     """
-    return list(logreg.predict(sent))
+    pos_tags = [''] * len(sent)
+    copied_sent = list(sent)
+    for i in xrange(len(sent)):
+        features = extract_features(copied_sent, i)
+        vectorized = vectorize_features(vec, features)
+        predicted_pos = logreg.predict(vectorized)
+        pos_tags[i] = predicted_pos
+        copied_sent[i] = (copied_sent[i][0], predicted_pos)
+    return pos_tags
+
 
 def possible_tag_set(tag_set, curr_index, for_prev_prev=True):
     if curr_index > 2 or (curr_index == 2 and not for_prev_prev):
