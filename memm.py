@@ -151,7 +151,7 @@ def possible_tag_set(tag_set, curr_index, for_prev_prev=True):
         return tag_set
     return ["*"]
 
-def memm_viterbi(sent, logreg):
+def memm_viterbi(sent_features, logreg):
     """
         Receives: a sentence to tag and the parameters learned by hmm
         Rerutns: predicted tags for the sentence
@@ -160,7 +160,7 @@ def memm_viterbi(sent, logreg):
     q_values = q_values_cache(logreg)
     possible_tags = index_to_tag_dict.keys()
     s = len(possible_tags)
-    n = sent.shape[0]
+    n = sent_features.shape[0]
 
     # Preparing the table, it starts with zeros for pi(0,*,*)
     table = np.zeros((n + 1, s + 1, s + 1), np.float64)
@@ -168,7 +168,7 @@ def memm_viterbi(sent, logreg):
     bp = np.zeros((n + 1, s + 1, s + 1), np.int8)
 
     # Phase 1: Filling the table
-    for index, features in enumerate(sent):
+    for index, features in enumerate(sent_features):
         k = index + 1
         for v_index, v in enumerate(possible_tags):
             for u_index, u in enumerate(possible_tag_set(possible_tags, k, False)):
@@ -208,7 +208,7 @@ def memm_viterbi(sent, logreg):
     return predicted_tags
 
 
-def memm_eval(test_data, vectorized_dev_data, logreg):
+def memm_eval(test_data, dev_examples, logreg):
     """
     Receives: test data set and the parameters learned by hmm
     Returns an evaluation of the accuracy of hmm & greedy hmm
@@ -225,8 +225,8 @@ def memm_eval(test_data, vectorized_dev_data, logreg):
                   % (i, stop_time - start_time, float(num_of_correct_in_greedy) / num_of_words * 100 \
                     , float(num_of_correct_in_viterbi) / num_of_words * 100)
 
-        sent_vecrtorized = vectorized_dev_data[num_of_words:num_of_words+len(sent)]
-        viterbi_tags = memm_viterbi(sent_vecrtorized, logreg)
+        #sent_vecrtorized = vectorized_dev_data[num_of_words:num_of_words+len(sent)]
+        viterbi_tags = memm_viterbi(dev_examples[i], logreg)
         greedy_tags = memm_greedy(sent_vecrtorized, logreg)
         all_viterbi_tags.append(viterbi_tags)
         all_greedy_tags.append(greedy_tags)
@@ -292,7 +292,6 @@ if __name__ == "__main__":
     all_examples.extend(dev_examples)
 
     print "Vectorize examples"
-    #vec = vectorize_features(vec, all_examples)
     all_examples_vectorized = vec.fit_transform(all_examples)
     train_examples_vectorized = all_examples_vectorized[:num_train_examples]
     dev_examples_vectorized = all_examples_vectorized[num_train_examples:]
@@ -315,7 +314,7 @@ if __name__ == "__main__":
             pickle.dump(logreg, open(MODEL_FILE_NAME, 'wb'))
     #End of log linear model training
 
-    acc_viterbi, acc_greedy = memm_eval(dev_sents, dev_examples_vectorized, logreg)
+    acc_viterbi, acc_greedy = memm_eval(dev_sents, dev_examples, logreg)
     print "dev: acc memm greedy: " + str(acc_greedy)
     print "dev: acc memm viterbi: " + str(acc_viterbi)
     if os.path.exists('Penn_Treebank/test.gold.conll'):
