@@ -156,11 +156,11 @@ def memm_viterbi(sent, logreg, vec):
         Receives: a sentence to tag and the parameters learned by hmm
         Rerutns: predicted tags for the sentence
     """
-    predicted_tags = [""] * sent.shape[0]
+    predicted_tags = [""] * len(sent)
     q_values = q_values_cache(logreg)
     possible_tags = index_to_tag_dict.keys()
     s = len(possible_tags)
-    n = sent.shape[0]
+    n = len(sent)
 
     # Preparing the table, it starts with zeros for pi(0,*,*)
     table = np.zeros((n + 1, s + 1, s + 1), np.float64)
@@ -168,7 +168,7 @@ def memm_viterbi(sent, logreg, vec):
     bp = np.zeros((n + 1, s + 1, s + 1), np.int8)
 
     # Phase 1: Filling the table
-    for index, features in enumerate(sent_features):
+    for index, _ in enumerate(sent):
         k = index + 1
         for v_index, v in enumerate(possible_tags):
             for u_index, u in enumerate(possible_tag_set(possible_tags, k, False)):
@@ -178,9 +178,14 @@ def memm_viterbi(sent, logreg, vec):
                 for t_index, t in enumerate(possible_tag_set(possible_tags, k, True)):
                     if t == "*":
                         t_index = s
-                    features['prev_tag'] = u
-                    featues['prev_tags'] = '%s,%s' (t,u)
-                    vec_features = vectorize_features(features)
+                    temp_sent = list(sent)
+                    if index >= 1:
+                        temp_sent[index - 1] = (sent[index - 1][0], index_to_tag_dict[u_index])
+
+                    if index >= 2:
+                        temp_sent[index - 2] = (sent[index - 2][0], index_to_tag_dict[t_index])
+
+                    features = vectorize_features(vec, extract_features(temp_sent, index))
                     q = q_values.get_prob(v, features)
                     val = table[k-1][t_index][u_index] * q
                     if val > max_val:
