@@ -8,9 +8,9 @@ import os
 import timeit
 
 # Use empty string to prevent storing.
-MODEL_FILE_NAME = 'saved_model.pickle'
-GREEDY_FILE_NAME = 'greedy_tags.pickle'
-VITERBI_FILE_NAME = 'viterbi_tags.pickle'
+MODEL_FILE_NAME = '' # 'saved_model3.pickle'
+GREEDY_FILE_NAME = '' #'greedy_tags.pickle'
+VITERBI_FILE_NAME = '' # 'viterbi_tags.pickle'
 
 class q_values_cache:
     """
@@ -28,6 +28,28 @@ class q_values_cache:
         self.cache[features] = self.logreg.predict_proba(features)[0]
         return self.cache[features][tag_index]
 
+class policy:
+    """
+        Policy to determine which words and tags tupples should be
+        computed and which should be pruned.
+        e.g. prunning all tupples that where not in the training set.
+    """
+    def __init__(self):
+        self.words_to_tags = {}
+
+    def load_sents(self, sents):
+        for sent in sents:
+            for i in xrange(len(sent)):
+                word, tag = sent[i]
+                if word not in self.words_to_tags:
+                    self.words_to_tags[word] = {}
+
+                self.words_to_tags[word][tag] = 1
+
+        return
+
+    def should_compute_by_tag(self, word, tag):
+        return tag in self.words_to_tags[word]
 
 def hasNumbers(inputString):
     return any(char.isdigit() for char in inputString)
@@ -53,11 +75,18 @@ def extract_features_base(curr_word, next_word, prev_word, prevprev_word, prev_t
 
     # Relevant only for non rare words
     if curr_word not in REGS.keys():
-        for i in xrange(1,min(5,len(curr_word))):
-            prefix_str = 'prefix_%s' % (i)
-            suffix_str = 'suffix_%s' % (i)
-            features[prefix_str] = curr_word[:i]
-            features[suffix_str] = curr_word[-i:]
+        features['suffix_ed'] = 1 if re.match('.*ed$', curr_word) else 0
+        features['suffix_ing'] = 1 if re.match('.*ing$', curr_word) else 0
+        features['suffix_ly'] = 1 if re.match('.*ly$', curr_word) else 0
+        features['suffix_s'] = 1 if re.match('.*s$', curr_word) else 0
+        features['prefix_un'] = 1 if re.match('^un.*', curr_word) else 0
+        features['prefix_de'] = 1 if re.match('^de.*', curr_word) else 0
+        features['prefix_re'] = 1 if re.match('^re.*', curr_word) else 0
+        #for i in xrange(1,min(5,len(curr_word))):
+        #    prefix_str = 'prefix_%s' % (i)
+        #    suffix_str = 'suffix_%s' % (i)
+        #    features[prefix_str] = curr_word[:i]
+        #    features[suffix_str] = curr_word[-i:]
 
         features['contains_number'] = hasNumbers(curr_word)
         features['contains_upper'] = hasUpper(curr_word)
@@ -66,6 +95,7 @@ def extract_features_base(curr_word, next_word, prev_word, prevprev_word, prev_t
     return features
 
 def extract_features_base_test():
+    # TODO: should be updated according to the specific prefix and suffixs.
     pred = extract_features_base('walked', 'fast', 'he', '*', 'A', 'B')
     ans = {
         'word': 'walked',
@@ -180,13 +210,27 @@ def memm_viterbi(sent, logreg, vec):
     for index, _ in enumerate(sent):
         k = index + 1
         for v_index, v in enumerate(possible_tags):
+            if not prun_policy.should_compute_by_tag(sent[index][0], index_to_tag_dict[v_index]):
+                continue
+
             for u_index, u in enumerate(possible_tag_set(possible_tags, k, False)):
                 if u == "*":
                     u_index = s
+                else:
+                    if index >= 1:
+                        if not prun_policy.should_compute_by_tag(sent[index-1][0], index_to_tag_dict[u_index]):
+                            continue
+
                 max_val, max_bp = 0, 0
                 for t_index, t in enumerate(possible_tag_set(possible_tags, k, True)):
                     if t == "*":
                         t_index = s
+
+                    else:
+                        if index >= 2:
+                            if not prun_policy.should_compute_by_tag(sent[index -2][0], index_to_tag_dict[t_index]):
+                                continue
+
                     temp_sent = list(sent)
                     if index >= 1:
                         temp_sent[index - 1] = (sent[index - 1][0], index_to_tag_dict[u_index])
@@ -196,6 +240,7 @@ def memm_viterbi(sent, logreg, vec):
 
                     features = vectorize_features(vec, extract_features(temp_sent, index))
                     q = q_values.get_prob(v, features)
+
                     val = table[k-1][t_index][u_index] * q
                     if val > max_val:
                         max_val = val
@@ -272,7 +317,7 @@ def memm_eval(test_data, logreg, vec):
 
 
 if __name__ == "__main__":
-    extract_features_base_test()
+    #extract_features_base_test()
 
     train_sents = read_conll_pos_file("Penn_Treebank/train.gold.conll")
     dev_sents = read_conll_pos_file("Penn_Treebank/dev.gold.conll")
@@ -298,6 +343,9 @@ if __name__ == "__main__":
     num_train_examples = len(train_examples)
     print "#example: " + str(num_train_examples)
     print "Done"
+
+    prun_policy = policy()
+    prun_policy.load_sents(train_sents)
 
     print "Create dev examples"
     dev_examples, _ = create_examples(dev_sents)
